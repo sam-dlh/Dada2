@@ -103,4 +103,13 @@ taxa.print <- taxa # Removing sequence rownames for display only
 rownames(taxa.print) <- NULL
 head(taxa.print)
 ```
+```{r}
+library(DECIPHER); packageVersion("DECIPHER")
+```
+```{bash}
+wget https://drive.google.com/file/d/1w3wdSCpSihntWkbP_zvXz7r3s-tNB8DV/view?usp=sharing
+```
+```{r}
+library(DECIPHER); packageVersion("DECIPHER")
+```
 
