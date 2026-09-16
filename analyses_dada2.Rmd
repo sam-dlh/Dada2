@@ -2,9 +2,13 @@
 title: "R Notebook"
 output: github_document
 ---
+
 ```{r}
 library(dada2); packageVersion("dada2")
 ```
+
+# librairy on va le mettre à chq fois au début de chq script pr déclarer le package utilisé dans install
+
 
 ```{r}
 path <- "/home/rstudio/Dada2/MiSeq_SOP" # CHANGE ME to the directory containing the fastq files after unzipping.
@@ -38,4 +42,4 @@ out <- filterAndTrim(fnFs, filtFs, fnRs, filtRs, truncLen=c(240,160),
               compress=TRUE, multithread=TRUE) # On Windows set multithread=FALSE (only needed for filterAndTrim)
 head(out)
 ```
-
+# la suite ici 
