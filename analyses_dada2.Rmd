@@ -98,4 +98,9 @@ taxa <- assignTaxonomy(seqtab.nochim, "silva_nr99_v138.1_train_set.fa.gz", multi
 taxa <- addSpecies(taxa, "silva_species_assignment_v138.1.fa.gz")
 ```
 
+```{r}
+taxa.print <- taxa # Removing sequence rownames for display only
+rownames(taxa.print) <- NULL
+head(taxa.print)
+```
 
