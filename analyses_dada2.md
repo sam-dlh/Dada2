@@ -378,17 +378,17 @@ library(DECIPHER); packageVersion("DECIPHER")
 wget https://drive.google.com/file/d/1w3wdSCpSihntWkbP_zvXz7r3s-tNB8DV/view?usp=sharing
 ```
 
-    ## --2026-10-09 10:32:37--  https://drive.google.com/file/d/1w3wdSCpSihntWkbP_zvXz7r3s-tNB8DV/view?usp=sharing
+    ## --2026-10-09 11:59:43--  https://drive.google.com/file/d/1w3wdSCpSihntWkbP_zvXz7r3s-tNB8DV/view?usp=sharing
     ## Resolving drive.google.com (drive.google.com)... 142.251.39.206, 2a00:1450:4007:809::200e
     ## Connecting to drive.google.com (drive.google.com)|142.251.39.206|:443... connected.
     ## HTTP request sent, awaiting response... 200 OK
     ## Length: unspecified [text/html]
-    ## Saving to: ‘view?usp=sharing.3’
+    ## Saving to: ‘view?usp=sharing.5’
     ## 
     ##      0K .......... .......... .......... .......... .......... 2.29M
-    ##     50K .......... .......... ........                         3.53M=0.03s
+    ##     50K .......... .......... ........                         3.72M=0.03s
     ## 
-    ## 2026-10-09 10:32:37 (2.62 MB/s) - ‘view?usp=sharing.3’ saved [80444]
+    ## 2026-10-09 11:59:43 (2.66 MB/s) - ‘view?usp=sharing.5’ saved [80216]
 
 ``` r
 library(DECIPHER); packageVersion("DECIPHER")
@@ -426,3 +426,142 @@ cat("Of those,", sum(match.ref), "were exact matches to the expected reference s
 ```
 
     ## Of those, 20 were exact matches to the expected reference sequences.
+
+``` r
+library(phyloseq); packageVersion("phyloseq")
+```
+
+    ## 
+    ## Attaching package: 'phyloseq'
+
+    ## The following object is masked from 'package:IRanges':
+    ## 
+    ##     distance
+
+    ## [1] '1.56.0'
+
+``` r
+library(Biostrings); packageVersion("Biostrings")
+```
+
+    ## [1] '2.80.2'
+
+``` r
+library(ggplot2); packageVersion("ggplot2")
+```
+
+    ## [1] '4.0.3'
+
+``` r
+theme_set(theme_bw())
+```
+
+``` r
+samples.out <- rownames(seqtab.nochim)
+subject <- sapply(strsplit(samples.out, "D"), `[`, 1)
+gender <- substr(subject,1,1)
+subject <- substr(subject,2,999)
+day <- as.integer(sapply(strsplit(samples.out, "D"), `[`, 2))
+samdf <- data.frame(Subject=subject, Gender=gender, Day=day)
+samdf$When <- "Early"
+samdf$When[samdf$Day>100] <- "Late"
+rownames(samdf) <- samples.out
+```
+
+``` r
+ps <- phyloseq(otu_table(seqtab.nochim, taxa_are_rows=FALSE),
+               sample_data(samdf),
+               tax_table(taxa))
+ps <- prune_samples(sample_names(ps) != "Mock", ps) # Remove mock sample
+```
+
+``` r
+dna <- Biostrings::DNAStringSet(taxa_names(ps))
+names(dna) <- taxa_names(ps)
+ps <- merge_phyloseq(ps, dna)
+taxa_names(ps) <- paste0("ASV", seq(ntaxa(ps)))
+ps
+```
+
+    ## phyloseq-class experiment-level object
+    ## otu_table()   OTU Table:         [ 232 taxa and 19 samples ]
+    ## sample_data() Sample Data:       [ 19 samples by 4 sample variables ]
+    ## tax_table()   Taxonomy Table:    [ 232 taxa by 7 taxonomic ranks ]
+    ## refseq()      DNAStringSet:      [ 232 reference sequences ]
+
+``` r
+plot_richness(ps, x="Day", measures=c("Shannon", "Simpson"), color="When")
+```
+
+    ## Warning in estimate_richness(physeq, split = TRUE, measures = measures): The data you have provided does not have
+    ## any singletons. This is highly suspicious. Results of richness
+    ## estimates (for example) are probably unreliable, or wrong, if you have already
+    ## trimmed low-abundance taxa from the data.
+    ## 
+    ## We recommended that you find the un-trimmed data and retry.
+
+    ## Warning: `aes_string()` was deprecated in ggplot2 3.0.0.
+    ## ℹ Please use tidy evaluation idioms with `aes()`.
+    ## ℹ See also `vignette("ggplot2-in-packages")` for more information.
+    ## ℹ The deprecated feature was likely used in the phyloseq package.
+    ##   Please report the issue at <https://github.com/joey711/phyloseq/issues>.
+    ## This warning is displayed once per session.
+    ## Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
+    ## generated.
+
+![](analyses_dada2_files/figure-gfm/unnamed-chunk-36-1.png)<!-- -->
+
+``` r
+# Transform data to proportions as appropriate for Bray-Curtis distances
+ps.prop <- transform_sample_counts(ps, function(otu) otu/sum(otu))
+ord.nmds.bray <- ordinate(ps.prop, method="NMDS", distance="bray")
+```
+
+    ## Run 0 stress 0.08043117 
+    ## Run 1 stress 0.08076337 
+    ## ... Procrustes: rmse 0.0105032  max resid 0.03232493 
+    ## Run 2 stress 0.1212044 
+    ## Run 3 stress 0.08076342 
+    ## ... Procrustes: rmse 0.01058411  max resid 0.03258893 
+    ## Run 4 stress 0.1010633 
+    ## Run 5 stress 0.08043117 
+    ## ... Procrustes: rmse 4.886232e-06  max resid 1.292741e-05 
+    ## ... Similar to previous best
+    ## Run 6 stress 0.0807634 
+    ## ... Procrustes: rmse 0.01056006  max resid 0.0325105 
+    ## Run 7 stress 0.09477224 
+    ## Run 8 stress 0.1326151 
+    ## Run 9 stress 0.1010632 
+    ## Run 10 stress 0.08616061 
+    ## Run 11 stress 0.0947722 
+    ## Run 12 stress 0.3744246 
+    ## Run 13 stress 0.1297738 
+    ## Run 14 stress 0.08616061 
+    ## Run 15 stress 0.08076337 
+    ## ... Procrustes: rmse 0.01050842  max resid 0.03234225 
+    ## Run 16 stress 0.1341461 
+    ## Run 17 stress 0.0947723 
+    ## Run 18 stress 0.08616061 
+    ## Run 19 stress 0.08043117 
+    ## ... Procrustes: rmse 2.746281e-06  max resid 7.464097e-06 
+    ## ... Similar to previous best
+    ## Run 20 stress 0.08043116 
+    ## ... New best solution
+    ## ... Procrustes: rmse 1.923988e-06  max resid 5.382423e-06 
+    ## ... Similar to previous best
+    ## *** Best solution repeated 1 times
+
+``` r
+plot_ordination(ps.prop, ord.nmds.bray, color="When", title="Bray NMDS")
+```
+
+![](analyses_dada2_files/figure-gfm/unnamed-chunk-38-1.png)<!-- -->
+
+``` r
+top20 <- names(sort(taxa_sums(ps), decreasing=TRUE))[1:20]
+ps.top20 <- transform_sample_counts(ps, function(OTU) OTU/sum(OTU))
+ps.top20 <- prune_taxa(top20, ps.top20)
+plot_bar(ps.top20, x="Day", fill="Family") + facet_wrap(~When, scales="free_x")
+```
+
+![](analyses_dada2_files/figure-gfm/unnamed-chunk-39-1.png)<!-- -->
