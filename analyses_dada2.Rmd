@@ -2,18 +2,19 @@
 title: "R Notebook"
 output: github_document
 ---
+# On charge d'abord la librairie Dada2 pour indiquer le package utilisé dans install
 
 ```{r}
 library(dada2); packageVersion("dada2")
 ```
 
-# librairy on va le mettre à chq fois au début de chq script pr déclarer le package utilisé dans install
 
-
+# On indique le chemin qui contient les données fastq
 ```{r}
-path <- "/home/rstudio/Dada2/MiSeq_SOP" # CHANGE ME to the directory containing the fastq files after unzipping.
+path <- "/home/rstudio/Dada2/MiSeq_SOP" 
 list.files(path)
 ```
+#On crée une liste de reverse reads et une liste de forward reads
 ```{r}
 # Forward and reverse fastq filenames have format: SAMPLENAME_R1_001.fastq and SAMPLENAME_R2_001.fastq
 fnFs <- sort(list.files(path, pattern="_R1_001.fastq", full.names = TRUE))
@@ -22,12 +23,22 @@ fnRs <- sort(list.files(path, pattern="_R2_001.fastq", full.names = TRUE))
 sample.names <- sapply(strsplit(basename(fnFs), "_"), `[`, 1)
 ```
 
+## Read quality profiles
+
+# On visualise le profil de qualité des reverses reads puis des forward reads
 ```{r}
 plotQualityProfile(fnRs[1:2])
 ```
 ```{r}
 plotQualityProfile(fnFs[1:2])
 ```
+#la visualisation des profils de qualité permet de déterminer où couper les reads 
+#Les forwards reads sont de bonne qualité, on coupe les 10 derniers nucléotides, à la position 240
+#Les reverse reads sont de moins bonne qualité, on coupe à la position 160
+#En coupant, on doit avoir une longueur de la taille du gène + 20 nucléotides quand R1 et R2 sont superposés
+
+##Filter and trim 
+# On attribue des noms aux fichiers filtrés
 ```{r}
 # Place filtered files in filtered/ subdirectory
 filtFs <- file.path(path, "filtered", paste0(sample.names, "_F_filt.fastq.gz"))
@@ -36,12 +47,18 @@ names(filtFs) <- sample.names
 names(filtRs) <- sample.names
 ```
 
+#On coupe les R1 et R2 en : 
+#retirant les nucléotides N qui peuvent être n'importe quel nucléotide : maxN=0
+#retirant les séquence sous 20 nucléotides : truncQ=2
+#vérifiant que les séquences correspondent à l'ARN du virus phix : rm.phix=TRUE 
 ```{r}
 out <- filterAndTrim(fnFs, filtFs, fnRs, filtRs, truncLen=c(240,160),
               maxN=0, maxEE=c(2,2), truncQ=2, rm.phix=TRUE,
               compress=TRUE, multithread=FALSE) # On Windows set multithread=FALSE (only needed for filterAndTrim)
 head(out)
 ```
+## Learn the error rates
+#On crée un modèle d'erreur sur les forwards reads et reverse reads filtrés à partir de la probabilité d'erreur spécifique en fonction du qscore de la base
 ```{r}
 errF <- learnErrors(filtFs, multithread=TRUE)
 ```
@@ -49,10 +66,13 @@ errF <- learnErrors(filtFs, multithread=TRUE)
 ```{r}
 errR <- learnErrors(filtRs, multithread=TRUE)
 ```
-
+# On visualise le score d'erreurs estimées
 ```{r}
 plotErrors(errF, nominalQ=TRUE)
 ```
+
+##Sample inferrence 
+#On applique le modèle d'erreur aux séquences forward et reverse
 ```{r}
 dadaFs <- dada(filtFs, err=errF, multithread=TRUE)
 ```
@@ -62,26 +82,41 @@ dadaRs <- dada(filtRs, err=errR, multithread=TRUE)
 ```{r}
 dadaFs[[1]]
 ```
+
+##Merge paired reads
+# On aligne les forward et reverse reads pour recréer la séquence d'ARN 16S
 ```{r}
 mergers <- mergePairs(dadaFs, filtFs, dadaRs, filtRs, verbose=TRUE)
 # Inspect the merger data.frame from the first sample
 head(mergers[[1]])
 ```
+
+## Sequence table
+#On construit un tableau d'observation de 20 échantillons de 293 séquences
 ```{r}
 seqtab <- makeSequenceTable(mergers)
 dim(seqtab)
 ```
+#On fait un tableau de la distribution de longueur des séquences 
 ```{r}
 # Inspect distribution of sequence lengths
 table(nchar(getSequences(seqtab)))
 ```
+
+##Remove chimeras
+#On veut enlever les brins d'ARN hybrides qui n'existent pas 
+#On utilise seqtab.nochim qui retire les séquences dont deux parties ressemblent à 2 ARN différents
 ```{r}
 seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE, verbose=TRUE)
 dim(seqtab.nochim)
 ```
+#On veut connaitre le pourcentage d'échantillons gardés
 ```{r}
 sum(seqtab.nochim)/sum(seqtab)
 ```
+
+##Track Reads through the pipeline
+# On fait un tableau qui résume ce qu'on a fait jusqu'ici
 ```{r}
 getN <- function(x) sum(getUniques(x))
 track <- cbind(out, sapply(dadaFs, getN), sapply(dadaRs, getN), sapply(mergers, getN), rowSums(seqtab.nochim))
@@ -91,6 +126,9 @@ rownames(track) <- sample.names
 head(track)
 ```
 
+## Assign taxonomy 
+#On assigne une taxonomie à nos séquences à partir de la base de données silva
+#On assigne la famille, le genre, l'espèce si on peut
 ```{r}
 taxa <- assignTaxonomy(seqtab.nochim, "silva_nr99_v138.1_train_set.fa.gz", multithread=TRUE)
 ```
@@ -103,6 +141,7 @@ taxa.print <- taxa # Removing sequence rownames for display only
 rownames(taxa.print) <- NULL
 head(taxa.print)
 ```
+#On assigne la taxonomie avec une autre méthode avec le package decipher
 ```{r}
 library(DECIPHER); packageVersion("DECIPHER")
 ```
@@ -126,6 +165,10 @@ taxid <- t(sapply(ids, function(x) {
 }))
 colnames(taxid) <- ranks; rownames(taxid) <- getSequences(seqtab.nochim)
 ```
+
+## Evaluate accuracy
+#On veut déterminer si le traitement de données est valable à partir d'une communauté MOCK de 20 souches connues 
+#On compte combien de souches le programme identifie dans la communauté mock. On devrait trouver 20 si la méthode est fonctionnelle. 
 ```{r}
 unqs.mock <- seqtab.nochim["Mock",]
 unqs.mock <- sort(unqs.mock[unqs.mock>0], decreasing=TRUE) # Drop ASVs absent in the Mock
@@ -136,25 +179,14 @@ mock.ref <- getSequences(file.path(path, "HMP_MOCK.v35.fasta"))
 match.ref <- sum(sapply(names(unqs.mock), function(x) any(grepl(x, mock.ref))))
 cat("Of those,", sum(match.ref), "were exact matches to the expected reference sequences.\n")
 ```
-
-
-
-
-
-
-
-
-
-
-
-
+##Phyloseq
+#On charge la librairie phyloseq
 ```{r}
 library(phyloseq); packageVersion("phyloseq")
 ```
 ```{r}
 library(Biostrings); packageVersion("Biostrings")
 ```
-
 ```{r}
 library(ggplot2); packageVersion("ggplot2")
 ```
@@ -162,6 +194,7 @@ library(ggplot2); packageVersion("ggplot2")
 theme_set(theme_bw())
 ```
 
+#On crée un tableau de métadonnées à partir des échantillons de dada2 
 ```{r}
 samples.out <- rownames(seqtab.nochim)
 subject <- sapply(strsplit(samples.out, "D"), `[`, 1)
@@ -174,6 +207,7 @@ samdf$When[samdf$Day>100] <- "Late"
 rownames(samdf) <- samples.out
 ```
 
+#On rassemble les données dans un objet ps en retirant les mock
 ```{r}
 ps <- phyloseq(otu_table(seqtab.nochim, taxa_are_rows=FALSE),
                sample_data(samdf),
@@ -181,6 +215,7 @@ ps <- phyloseq(otu_table(seqtab.nochim, taxa_are_rows=FALSE),
 ps <- prune_samples(sample_names(ps) != "Mock", ps) # Remove mock sample
 ```
 
+#On stocke et renomme les séquences complètes des ASV 
 ```{r}
 dna <- Biostrings::DNAStringSet(taxa_names(ps))
 names(dna) <- taxa_names(ps)
@@ -189,9 +224,11 @@ taxa_names(ps) <- paste0("ASV", seq(ntaxa(ps)))
 ps
 ```
 
+#On fait un graphique de la diversité alpha 
 ```{r}
 plot_richness(ps, x="Day", measures=c("Shannon", "Simpson"), color="When")
 ```
+# On fait une ordination pour faire un graphique de la diversité beta (on compare les échantillons)
 ```{r}
 # Transform data to proportions as appropriate for Bray-Curtis distances
 ps.prop <- transform_sample_counts(ps, function(otu) otu/sum(otu))
@@ -200,6 +237,8 @@ ord.nmds.bray <- ordinate(ps.prop, method="NMDS", distance="bray")
 ```{r}
 plot_ordination(ps.prop, ord.nmds.bray, color="When", title="Bray NMDS")
 ```
+
+# On crée un graphique de la composition taxonomique des 20 ASV les plus abondants dans nos données classés par familles 
 ```{r}
 top20 <- names(sort(taxa_sums(ps), decreasing=TRUE))[1:20]
 ps.top20 <- transform_sample_counts(ps, function(OTU) OTU/sum(OTU))
