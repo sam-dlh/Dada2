@@ -437,17 +437,17 @@ library(DECIPHER); packageVersion("DECIPHER")
 wget https://drive.google.com/file/d/1w3wdSCpSihntWkbP_zvXz7r3s-tNB8DV/view?usp=sharing
 ```
 
-    ## --2026-11-02 18:34:10--  https://drive.google.com/file/d/1w3wdSCpSihntWkbP_zvXz7r3s-tNB8DV/view?usp=sharing
+    ## --2026-11-02 18:51:35--  https://drive.google.com/file/d/1w3wdSCpSihntWkbP_zvXz7r3s-tNB8DV/view?usp=sharing
     ## Resolving drive.google.com (drive.google.com)... 142.251.209.110, 2a00:1450:4006:818::200e
     ## Connecting to drive.google.com (drive.google.com)|142.251.209.110|:443... connected.
     ## HTTP request sent, awaiting response... 200 OK
     ## Length: unspecified [text/html]
-    ## Saving to: ‘view?usp=sharing.7’
+    ## Saving to: ‘view?usp=sharing.8’
     ## 
-    ##      0K .......... .......... .......... .......... .......... 4.28M
-    ##     50K .......... .......... .......... ...                   6.95M=0.02s
+    ##      0K .......... .......... .......... .......... .......... 4.62M
+    ##     50K .......... .......... .......... ..                    8.75M=0.01s
     ## 
-    ## 2026-11-02 18:34:11 (5.06 MB/s) - ‘view?usp=sharing.7’ saved [85375]
+    ## 2026-11-02 18:51:36 (5.68 MB/s) - ‘view?usp=sharing.8’ saved [84817]
 
 ``` r
 library(DECIPHER); packageVersion("DECIPHER")
@@ -596,34 +596,43 @@ ord.nmds.bray <- ordinate(ps.prop, method="NMDS", distance="bray")
 ```
 
     ## Run 0 stress 0.08043117 
-    ## Run 1 stress 0.08076338 
-    ## ... Procrustes: rmse 0.01052325  max resid 0.03239059 
-    ## Run 2 stress 0.08616061 
-    ## Run 3 stress 0.09477228 
-    ## Run 4 stress 0.09477208 
+    ## Run 1 stress 0.08076343 
+    ## ... Procrustes: rmse 0.01059807  max resid 0.03263442 
+    ## Run 2 stress 0.09477113 
+    ## Run 3 stress 0.08076337 
+    ## ... Procrustes: rmse 0.01050978  max resid 0.03234657 
+    ## Run 4 stress 0.101063 
     ## Run 5 stress 0.08616061 
-    ## Run 6 stress 0.1228545 
-    ## Run 7 stress 0.1010633 
-    ## Run 8 stress 0.09477215 
-    ## Run 9 stress 0.08076338 
-    ## ... Procrustes: rmse 0.01050211  max resid 0.03232233 
-    ## Run 10 stress 0.1212044 
-    ## Run 11 stress 0.09477212 
-    ## Run 12 stress 0.1228545 
-    ## Run 13 stress 0.08076338 
-    ## ... Procrustes: rmse 0.01053475  max resid 0.03242812 
-    ## Run 14 stress 0.09477202 
+    ## Run 6 stress 0.08043117 
+    ## ... New best solution
+    ## ... Procrustes: rmse 7.706182e-07  max resid 1.744741e-06 
+    ## ... Similar to previous best
+    ## Run 7 stress 0.08043117 
+    ## ... Procrustes: rmse 1.937326e-06  max resid 4.0834e-06 
+    ## ... Similar to previous best
+    ## Run 8 stress 0.08076339 
+    ## ... Procrustes: rmse 0.01054412  max resid 0.03245903 
+    ## Run 9 stress 0.09477113 
+    ## Run 10 stress 0.08043117 
+    ## ... Procrustes: rmse 1.22034e-06  max resid 2.379094e-06 
+    ## ... Similar to previous best
+    ## Run 11 stress 0.08043117 
+    ## ... Procrustes: rmse 3.117413e-06  max resid 8.79206e-06 
+    ## ... Similar to previous best
+    ## Run 12 stress 0.09477227 
+    ## Run 13 stress 0.08076337 
+    ## ... Procrustes: rmse 0.01049326  max resid 0.03229291 
+    ## Run 14 stress 0.1320349 
     ## Run 15 stress 0.08616061 
-    ## Run 16 stress 0.101063 
+    ## Run 16 stress 0.1274325 
     ## Run 17 stress 0.08043117 
-    ## ... Procrustes: rmse 1.810163e-06  max resid 4.897557e-06 
+    ## ... Procrustes: rmse 1.159945e-06  max resid 2.747879e-06 
     ## ... Similar to previous best
-    ## Run 18 stress 0.08043117 
-    ## ... Procrustes: rmse 2.150394e-06  max resid 5.307334e-06 
-    ## ... Similar to previous best
-    ## Run 19 stress 0.09477197 
-    ## Run 20 stress 0.09477218 
-    ## *** Best solution repeated 2 times
+    ## Run 18 stress 0.08076341 
+    ## ... Procrustes: rmse 0.01057748  max resid 0.03256775 
+    ## Run 19 stress 0.09477195 
+    ## Run 20 stress 0.1010632 
+    ## *** Best solution repeated 5 times
 
 ``` r
 plot_ordination(ps.prop, ord.nmds.bray, color="When", title="Bray NMDS")
