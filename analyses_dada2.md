@@ -1,6 +1,8 @@
 R Notebook
 ================
 
+# On charge d’abord la librairie Dada2 pour indiquer le package utilisé dans install
+
 ``` r
 library(dada2); packageVersion("dada2")
 ```
@@ -9,10 +11,10 @@ library(dada2); packageVersion("dada2")
 
     ## [1] '1.40.0'
 
-# librairy on va le mettre à chq fois au début de chq script pr déclarer le package utilisé dans install
+# On indique le chemin qui contient les données fastq
 
 ``` r
-path <- "/home/rstudio/Dada2/MiSeq_SOP" # CHANGE ME to the directory containing the fastq files after unzipping.
+path <- "/home/rstudio/Dada2/MiSeq_SOP" 
 list.files(path)
 ```
 
@@ -40,6 +42,8 @@ list.files(path)
     ## [43] "mouse.dpw.metadata"            "mouse.time.design"            
     ## [45] "stability.batch"               "stability.files"
 
+\#On crée une liste de reverse reads et une liste de forward reads
+
 ``` r
 # Forward and reverse fastq filenames have format: SAMPLENAME_R1_001.fastq and SAMPLENAME_R2_001.fastq
 fnFs <- sort(list.files(path, pattern="_R1_001.fastq", full.names = TRUE))
@@ -47,6 +51,10 @@ fnRs <- sort(list.files(path, pattern="_R2_001.fastq", full.names = TRUE))
 # Extract sample names, assuming filenames have format: SAMPLENAME_XXX.fastq
 sample.names <- sapply(strsplit(basename(fnFs), "_"), `[`, 1)
 ```
+
+## Read quality profiles
+
+# On visualise le profil de qualité des reverses reads puis des forward reads
 
 ``` r
 plotQualityProfile(fnRs[1:2])
@@ -58,7 +66,15 @@ plotQualityProfile(fnRs[1:2])
 plotQualityProfile(fnFs[1:2])
 ```
 
-![](analyses_dada2_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
+![](analyses_dada2_files/figure-gfm/unnamed-chunk-5-1.png)<!-- --> \#la
+visualisation des profils de qualité permet de déterminer où couper les
+reads \#Les forwards reads sont de bonne qualité, on coupe les 10
+derniers nucléotides, à la position 240 \#Les reverse reads sont de
+moins bonne qualité, on coupe à la position 160 \#En coupant, on doit
+avoir une longueur de la taille du gène + 20 nucléotides quand R1 et R2
+sont superposés
+
+\##Filter and trim \# On attribue des noms aux fichiers filtrés
 
 ``` r
 # Place filtered files in filtered/ subdirectory
@@ -67,6 +83,11 @@ filtRs <- file.path(path, "filtered", paste0(sample.names, "_R_filt.fastq.gz"))
 names(filtFs) <- sample.names
 names(filtRs) <- sample.names
 ```
+
+\#On coupe les R1 et R2 en : \#retirant les nucléotides N qui peuvent
+être n’importe quel nucléotide : maxN=0 \#retirant les séquence sous 20
+nucléotides : truncQ=2 \#vérifiant que les séquences correspondent à
+l’ARN du virus phix : rm.phix=TRUE
 
 ``` r
 out <- filterAndTrim(fnFs, filtFs, fnRs, filtRs, truncLen=c(240,160),
@@ -83,6 +104,12 @@ head(out)
     ## F3D143_S209_L001_R1_001.fastq     3178      2941
     ## F3D144_S210_L001_R1_001.fastq     4827      4312
 
+## Learn the error rates
+
+\#On crée un modèle d’erreur sur les forwards reads et reverse reads
+filtrés à partir de la probabilité d’erreur spécifique en fonction du
+qscore de la base
+
 ``` r
 errF <- learnErrors(filtFs, multithread=TRUE)
 ```
@@ -94,6 +121,8 @@ errR <- learnErrors(filtRs, multithread=TRUE)
 ```
 
     ## 22342720 total bases in 139642 reads from 20 samples will be used for learning the error rates.
+
+# On visualise le score d’erreurs estimées
 
 ``` r
 plotErrors(errF, nominalQ=TRUE)
@@ -107,6 +136,9 @@ plotErrors(errF, nominalQ=TRUE)
     ## (`geom_line()`).
 
 ![](analyses_dada2_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
+
+\##Sample inferrence \#On applique le modèle d’erreur aux séquences
+forward et reverse
 
 ``` r
 dadaFs <- dada(filtFs, err=errF, multithread=TRUE)
@@ -165,6 +197,9 @@ dadaFs[[1]]
     ## dada-class: object describing DADA2 denoising results
     ## 128 sequence variants were inferred from 1979 input unique sequences.
     ## Key parameters: OMEGA_A = 1e-40, OMEGA_C = 1e-40, BAND_SIZE = 16
+
+\##Merge paired reads \# On aligne les forward et reverse reads pour
+recréer la séquence d’ARN 16S
 
 ``` r
 mergers <- mergePairs(dadaFs, filtFs, dadaRs, filtRs, verbose=TRUE)
@@ -230,12 +265,19 @@ head(mergers[[1]])
     ## 5       345       5       6    148         0      0      1   TRUE
     ## 6       282       6       5    148         0      0      2   TRUE
 
+## Sequence table
+
+\#On construit un tableau d’observation de 20 échantillons de 293
+séquences
+
 ``` r
 seqtab <- makeSequenceTable(mergers)
 dim(seqtab)
 ```
 
     ## [1]  20 293
+
+\#On fait un tableau de la distribution de longueur des séquences
 
 ``` r
 # Inspect distribution of sequence lengths
@@ -245,6 +287,10 @@ table(nchar(getSequences(seqtab)))
     ## 
     ## 251 252 253 254 255 
     ##   1  88 196   6   2
+
+\##Remove chimeras \#On veut enlever les brins d’ARN hybrides qui
+n’existent pas \#On utilise seqtab.nochim qui retire les séquences dont
+deux parties ressemblent à 2 ARN différents
 
 ``` r
 seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE, verbose=TRUE)
@@ -258,11 +304,16 @@ dim(seqtab.nochim)
 
     ## [1]  20 232
 
+\#On veut connaitre le pourcentage d’échantillons gardés
+
 ``` r
 sum(seqtab.nochim)/sum(seqtab)
 ```
 
     ## [1] 0.9640374
+
+\##Track Reads through the pipeline \# On fait un tableau qui résume ce
+qu’on a fait jusqu’ici
 
 ``` r
 getN <- function(x) sum(getUniques(x))
@@ -280,6 +331,11 @@ head(track)
     ## F3D142  3183     2914      2799      2830   2595    2521
     ## F3D143  3178     2941      2822      2868   2553    2519
     ## F3D144  4827     4312      4151      4228   3646    3507
+
+## Assign taxonomy
+
+\#On assigne une taxonomie à nos séquences à partir de la base de
+données silva \#On assigne la famille, le genre, l’espèce si on peut
 
 ``` r
 taxa <- assignTaxonomy(seqtab.nochim, "silva_nr99_v138.1_train_set.fa.gz", multithread=TRUE)
@@ -309,6 +365,9 @@ head(taxa.print)
     ## [4,] NA            NA     
     ## [5,] "Bacteroides" NA     
     ## [6,] NA            NA
+
+\#On assigne la taxonomie avec une autre méthode avec le package
+decipher
 
 ``` r
 library(DECIPHER); packageVersion("DECIPHER")
@@ -378,17 +437,17 @@ library(DECIPHER); packageVersion("DECIPHER")
 wget https://drive.google.com/file/d/1w3wdSCpSihntWkbP_zvXz7r3s-tNB8DV/view?usp=sharing
 ```
 
-    ## --2026-10-09 11:59:43--  https://drive.google.com/file/d/1w3wdSCpSihntWkbP_zvXz7r3s-tNB8DV/view?usp=sharing
-    ## Resolving drive.google.com (drive.google.com)... 142.251.39.206, 2a00:1450:4007:809::200e
-    ## Connecting to drive.google.com (drive.google.com)|142.251.39.206|:443... connected.
+    ## --2026-11-02 18:34:10--  https://drive.google.com/file/d/1w3wdSCpSihntWkbP_zvXz7r3s-tNB8DV/view?usp=sharing
+    ## Resolving drive.google.com (drive.google.com)... 142.251.209.110, 2a00:1450:4006:818::200e
+    ## Connecting to drive.google.com (drive.google.com)|142.251.209.110|:443... connected.
     ## HTTP request sent, awaiting response... 200 OK
     ## Length: unspecified [text/html]
-    ## Saving to: ‘view?usp=sharing.5’
+    ## Saving to: ‘view?usp=sharing.7’
     ## 
-    ##      0K .......... .......... .......... .......... .......... 2.29M
-    ##     50K .......... .......... ........                         3.72M=0.03s
+    ##      0K .......... .......... .......... .......... .......... 4.28M
+    ##     50K .......... .......... .......... ...                   6.95M=0.02s
     ## 
-    ## 2026-10-09 11:59:43 (2.66 MB/s) - ‘view?usp=sharing.5’ saved [80216]
+    ## 2026-11-02 18:34:11 (5.06 MB/s) - ‘view?usp=sharing.7’ saved [85375]
 
 ``` r
 library(DECIPHER); packageVersion("DECIPHER")
@@ -411,6 +470,13 @@ taxid <- t(sapply(ids, function(x) {
 colnames(taxid) <- ranks; rownames(taxid) <- getSequences(seqtab.nochim)
 ```
 
+## Evaluate accuracy
+
+\#On veut déterminer si le traitement de données est valable à partir
+d’une communauté MOCK de 20 souches connues \#On compte combien de
+souches le programme identifie dans la communauté mock. On devrait
+trouver 20 si la méthode est fonctionnelle.
+
 ``` r
 unqs.mock <- seqtab.nochim["Mock",]
 unqs.mock <- sort(unqs.mock[unqs.mock>0], decreasing=TRUE) # Drop ASVs absent in the Mock
@@ -426,6 +492,8 @@ cat("Of those,", sum(match.ref), "were exact matches to the expected reference s
 ```
 
     ## Of those, 20 were exact matches to the expected reference sequences.
+
+\##Phyloseq \#On charge la librairie phyloseq
 
 ``` r
 library(phyloseq); packageVersion("phyloseq")
@@ -456,6 +524,8 @@ library(ggplot2); packageVersion("ggplot2")
 theme_set(theme_bw())
 ```
 
+\#On crée un tableau de métadonnées à partir des échantillons de dada2
+
 ``` r
 samples.out <- rownames(seqtab.nochim)
 subject <- sapply(strsplit(samples.out, "D"), `[`, 1)
@@ -468,12 +538,16 @@ samdf$When[samdf$Day>100] <- "Late"
 rownames(samdf) <- samples.out
 ```
 
+\#On rassemble les données dans un objet ps en retirant les mock
+
 ``` r
 ps <- phyloseq(otu_table(seqtab.nochim, taxa_are_rows=FALSE),
                sample_data(samdf),
                tax_table(taxa))
 ps <- prune_samples(sample_names(ps) != "Mock", ps) # Remove mock sample
 ```
+
+\#On stocke et renomme les séquences complètes des ASV
 
 ``` r
 dna <- Biostrings::DNAStringSet(taxa_names(ps))
@@ -488,6 +562,8 @@ ps
     ## sample_data() Sample Data:       [ 19 samples by 4 sample variables ]
     ## tax_table()   Taxonomy Table:    [ 232 taxa by 7 taxonomic ranks ]
     ## refseq()      DNAStringSet:      [ 232 reference sequences ]
+
+\#On fait un graphique de la diversité alpha
 
 ``` r
 plot_richness(ps, x="Day", measures=c("Shannon", "Simpson"), color="When")
@@ -509,7 +585,9 @@ plot_richness(ps, x="Day", measures=c("Shannon", "Simpson"), color="When")
     ## Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
     ## generated.
 
-![](analyses_dada2_files/figure-gfm/unnamed-chunk-36-1.png)<!-- -->
+![](analyses_dada2_files/figure-gfm/unnamed-chunk-36-1.png)<!-- --> \#
+On fait une ordination pour faire un graphique de la diversité beta (on
+compare les échantillons)
 
 ``` r
 # Transform data to proportions as appropriate for Bray-Curtis distances
@@ -518,44 +596,42 @@ ord.nmds.bray <- ordinate(ps.prop, method="NMDS", distance="bray")
 ```
 
     ## Run 0 stress 0.08043117 
-    ## Run 1 stress 0.08076337 
-    ## ... Procrustes: rmse 0.0105032  max resid 0.03232493 
-    ## Run 2 stress 0.1212044 
-    ## Run 3 stress 0.08076342 
-    ## ... Procrustes: rmse 0.01058411  max resid 0.03258893 
-    ## Run 4 stress 0.1010633 
-    ## Run 5 stress 0.08043117 
-    ## ... Procrustes: rmse 4.886232e-06  max resid 1.292741e-05 
+    ## Run 1 stress 0.08076338 
+    ## ... Procrustes: rmse 0.01052325  max resid 0.03239059 
+    ## Run 2 stress 0.08616061 
+    ## Run 3 stress 0.09477228 
+    ## Run 4 stress 0.09477208 
+    ## Run 5 stress 0.08616061 
+    ## Run 6 stress 0.1228545 
+    ## Run 7 stress 0.1010633 
+    ## Run 8 stress 0.09477215 
+    ## Run 9 stress 0.08076338 
+    ## ... Procrustes: rmse 0.01050211  max resid 0.03232233 
+    ## Run 10 stress 0.1212044 
+    ## Run 11 stress 0.09477212 
+    ## Run 12 stress 0.1228545 
+    ## Run 13 stress 0.08076338 
+    ## ... Procrustes: rmse 0.01053475  max resid 0.03242812 
+    ## Run 14 stress 0.09477202 
+    ## Run 15 stress 0.08616061 
+    ## Run 16 stress 0.101063 
+    ## Run 17 stress 0.08043117 
+    ## ... Procrustes: rmse 1.810163e-06  max resid 4.897557e-06 
     ## ... Similar to previous best
-    ## Run 6 stress 0.0807634 
-    ## ... Procrustes: rmse 0.01056006  max resid 0.0325105 
-    ## Run 7 stress 0.09477224 
-    ## Run 8 stress 0.1326151 
-    ## Run 9 stress 0.1010632 
-    ## Run 10 stress 0.08616061 
-    ## Run 11 stress 0.0947722 
-    ## Run 12 stress 0.3744246 
-    ## Run 13 stress 0.1297738 
-    ## Run 14 stress 0.08616061 
-    ## Run 15 stress 0.08076337 
-    ## ... Procrustes: rmse 0.01050842  max resid 0.03234225 
-    ## Run 16 stress 0.1341461 
-    ## Run 17 stress 0.0947723 
-    ## Run 18 stress 0.08616061 
-    ## Run 19 stress 0.08043117 
-    ## ... Procrustes: rmse 2.746281e-06  max resid 7.464097e-06 
+    ## Run 18 stress 0.08043117 
+    ## ... Procrustes: rmse 2.150394e-06  max resid 5.307334e-06 
     ## ... Similar to previous best
-    ## Run 20 stress 0.08043116 
-    ## ... New best solution
-    ## ... Procrustes: rmse 1.923988e-06  max resid 5.382423e-06 
-    ## ... Similar to previous best
-    ## *** Best solution repeated 1 times
+    ## Run 19 stress 0.09477197 
+    ## Run 20 stress 0.09477218 
+    ## *** Best solution repeated 2 times
 
 ``` r
 plot_ordination(ps.prop, ord.nmds.bray, color="When", title="Bray NMDS")
 ```
 
 ![](analyses_dada2_files/figure-gfm/unnamed-chunk-38-1.png)<!-- -->
+
+# On crée un graphique de la composition taxonomique des 20 ASV les plus abondants dans nos données classés par familles
 
 ``` r
 top20 <- names(sort(taxa_sums(ps), decreasing=TRUE))[1:20]
